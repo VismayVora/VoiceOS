@@ -73,7 +73,7 @@ def initialize_session_state():
     if "provider_radio" not in st.session_state:
         st.session_state.provider_radio = st.session_state.provider
     if "model" not in st.session_state:
-        _reset_model()
+        reset_model_selection()
     if "auth_validated" not in st.session_state:
         st.session_state.auth_validated = False
     if "responses" not in st.session_state:

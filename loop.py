@@ -60,7 +60,7 @@ PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
 # * If the item you are looking at is a pdf, if after taking a single screenshot of the pdf it seems that you want to read the entire document instead of trying to continue to read the pdf from your screenshots + navigation, determine the URL, use curl to download the pdf, install and use pdftotext (available via homebrew) to convert it to a text file, and then read that text file directly with your StrReplaceEditTool.
 # </IMPORTANT>"""
 SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
-* You are utilizing a macOS Sonoma 15.7 environment using {platform.machine()} architecture with command line internet access.
+* You are utilizing a macOS Sequoia 15.6 environment using {platform.machine()} architecture with command line internet access.
 * Package management:
   - Use homebrew for package installation
   - Use curl for HTTP requests
@@ -95,7 +95,7 @@ SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 * The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
 </SYSTEM_CAPABILITY>"""
 
-async def sampling_loop(
+async def agent_loop(
     *,
     model: str,
     provider: APIProvider,
@@ -122,7 +122,7 @@ async def sampling_loop(
 
     while True:
         if only_n_most_recent_images:
-            _maybe_filter_to_n_most_recent_images(messages, only_n_most_recent_images)
+            filter_recent_images(messages, only_n_most_recent_images)
 
         if provider == APIProvider.ANTHROPIC:
             client = Anthropic(api_key=api_key)
@@ -175,7 +175,7 @@ async def sampling_loop(
         messages.append({"content": tool_result_content, "role": "user"})
 
 
-def _maybe_filter_to_n_most_recent_images(
+def filter_recent_images(
     messages: list[BetaMessageParam],
     images_to_keep: int,
     min_removal_threshold: int = 10,

@@ -24,7 +24,8 @@ from streamlit.delta_generator import DeltaGenerator
 from loop import (
     PROVIDER_TO_DEFAULT_MODEL_NAME,
     APIProvider,
-    sampling_loop,
+    APIProvider,
+    agent_loop,
 )
 from tools import ToolResult
 from dotenv import load_dotenv
@@ -51,13 +52,13 @@ STREAMLIT_STYLE = """
 WARNING_TEXT = ""
 
 
-class Sender(StrEnum):
+class ChatRole(StrEnum):
     USER = "user"
     BOT = "assistant"
     TOOL = "tool"
 
 
-def setup_state():
+def initialize_session_state():
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "api_key" not in st.session_state:
@@ -87,7 +88,7 @@ def setup_state():
         st.session_state.hide_images = False
 
 
-def _reset_model():
+def reset_model_selection():
     st.session_state.model = PROVIDER_TO_DEFAULT_MODEL_NAME[
         cast(APIProvider, st.session_state.provider)
     ]
@@ -95,19 +96,19 @@ def _reset_model():
 
 async def main():
     """Render loop for streamlit"""
-    setup_state()
+    initialize_session_state()
 
     st.markdown(STREAMLIT_STYLE, unsafe_allow_html=True)
 
-    st.title("Claude Computer Use for Mac")
+    st.title("VoiceOS Computer Use")
 
-    st.markdown("""This is from [Mac Computer Use](https://github.com/deedy/mac_computer_use), a fork of [Anthropic Computer Use](https://github.com/anthropics/anthropic-quickstarts/blob/main/computer-use-demo/README.md) to work natively on Mac.""")
+    st.markdown("""VoiceOS Computer Use allows you to control your Mac using natural language.""")
 
     with st.sidebar:
 
         def _reset_api_provider():
             if st.session_state.provider_radio != st.session_state.provider:
-                _reset_model()
+                reset_model_selection()
                 st.session_state.provider = st.session_state.provider_radio
                 st.session_state.auth_validated = False
 
@@ -149,7 +150,7 @@ async def main():
         if st.button("Reset", type="primary"):
             with st.spinner("Resetting..."):
                 st.session_state.clear()
-                setup_state()
+                initialize_session_state()
 
                 subprocess.run("pkill Xvfb; pkill tint2", shell=True)  # noqa: ASYNC221
                 await asyncio.sleep(1)
@@ -180,7 +181,7 @@ async def main():
                     # so we store the tool use responses
                     if isinstance(block, dict) and block["type"] == "tool_result":
                         _render_message(
-                            Sender.TOOL, st.session_state.tools[block["tool_use_id"]]
+                            ChatRole.TOOL, st.session_state.tools[block["tool_use_id"]]
                         )
                     else:
                         _render_message(
@@ -196,29 +197,29 @@ async def main():
         if new_message:
             st.session_state.messages.append(
                 {
-                    "role": Sender.USER,
+                    "role": ChatRole.USER,
                     "content": [TextBlock(type="text", text=new_message)],
                 }
             )
-            _render_message(Sender.USER, new_message)
+            _render_message(ChatRole.USER, new_message)
 
         try:
             most_recent_message = st.session_state["messages"][-1]
         except IndexError:
             return
 
-        if most_recent_message["role"] is not Sender.USER:
+        if most_recent_message["role"] is not ChatRole.USER:
             # we don't have a user message to respond to, exit early
             return
 
         with st.spinner("Running Agent..."):
             # run the agent sampling loop with the newest message
-            st.session_state.messages = await sampling_loop(
+            st.session_state.messages = await agent_loop(
                 system_prompt_suffix=st.session_state.custom_system_prompt,
                 model=st.session_state.model,
                 provider=st.session_state.provider,
                 messages=st.session_state.messages,
-                output_callback=partial(_render_message, Sender.BOT),
+                output_callback=partial(_render_message, ChatRole.BOT),
                 tool_output_callback=partial(
                     _tool_output_callback, tool_state=st.session_state.tools
                 ),
@@ -298,7 +299,7 @@ def _tool_output_callback(
 ):
     """Handle a tool output by storing it to state and rendering it."""
     tool_state[tool_id] = tool_output
-    _render_message(Sender.TOOL, tool_output)
+    _render_message(ChatRole.TOOL, tool_output)
 
 
 def _render_api_response(
@@ -319,7 +320,7 @@ def _render_api_response(
 
 
 def _render_message(
-    sender: Sender,
+    sender: ChatRole,
     message: str | BetaTextBlock | BetaToolUseBlock | ToolResult,
 ):
     """Convert input from the user or output from the agent to a streamlit message."""

@@ -1,10 +1,7 @@
-# Anthropic Computer Use (for Mac)
+# VoiceOS Computer Use (for Mac)
 
-[Anthropic Computer Use](https://github.com/anthropics/anthropic-quickstarts/blob/main/computer-use-demo/README.md) is a beta Anthropic feature which runs a Docker image with Ubuntu and controls it. This fork allows you to run it natively on macOS, providing direct system control through native macOS commands and utilities.
+[VoiceOS Computer Use](https://github.com/VismayVora/VoiceOS) is a powerful tool that runs a Docker image with Ubuntu and controls it, or runs natively on macOS to provide direct system control through native macOS commands and utilities.
 
-> [!CAUTION]
-> This comes with obvious risks. The Anthropic agent can control everything on your Mac. Please be careful.
-> Anthropic's new Claude 3.5 Sonnet model refuses to do unsafe things like purchase items or download illegal content.
 
 ## Features
 
@@ -28,8 +25,8 @@
 1. Clone the repository and navigate to it:
 
 ```bash
-git clone https://github.com/deedy/mac_computer_use.git
-cd mac_computer_use
+git clone https://github.com/VismayVora/VoiceOS.git
+cd VoiceOS
 ```
 
 2. Create and activate a virtual environment:
@@ -54,7 +51,7 @@ pip install -r requirements.txt
 
 ## Running the Demo
 
-### Set up your environment and Anthropic API key
+### Set up your environment and API key
 
 1. In a `.env` file add:
 
@@ -66,7 +63,7 @@ HEIGHT=600
 DISPLAY_NUM=1
 ```
 
-Set the screen dimensions (recommended: stay within XGA/WXGA resolution), and put in your key from [Anthropic Console](https://console.anthropic.com/settings/keys).
+Set the screen dimensions (recommended: stay within XGA/WXGA resolution), and put in your key.
 
 2. Start the Streamlit app:
 
@@ -92,5 +89,3 @@ export HEIGHT=768
 streamlit run streamlit.py
 ```
 
-> [!IMPORTANT]
-> The Beta API used in this reference implementation is subject to change. Please refer to the [API release notes](https://docs.anthropic.com/en/release-notes/api) for the most up-to-date information.

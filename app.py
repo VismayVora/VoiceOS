@@ -31,6 +31,7 @@ from loop import (
 )
 import voice
 from tools import ToolResult
+from tools.local_actions import handle_local_action
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -99,6 +100,9 @@ def reset_model_selection():
 
 async def main():
     """Render loop for streamlit"""
+    # Stop any ongoing speech when the app reruns (e.g. user interaction)
+    voice.stop_speaking()
+    
     initialize_session_state()
 
     st.markdown(STREAMLIT_STYLE, unsafe_allow_html=True)
@@ -201,8 +205,8 @@ async def main():
         # This will block for a few seconds listening
         # We use a placeholder to show status
         status = st.empty()
-        status.text("👂 Listening for 'VoiceOS'...")
-        detected_command = voice.listen_for_wake_word(wake_word="voiceos")
+        status.text("👂 Listening for 'VoiceOS', 'Computer', or 'Jarvis'...")
+        detected_command = voice.listen_for_wake_word()
         if detected_command:
             voice_prompt = detected_command
             status.success(f"Heard: {voice_prompt}")
@@ -249,10 +253,19 @@ async def main():
 
         # render past chats
         if new_message:
+            # Check for fast-path local actions
+            system_note = handle_local_action(new_message)
+            
+            user_content = [TextBlock(type="text", text=new_message)]
+            
+            if system_note:
+                st.info(f"ℹ️ {system_note}")
+                user_content.append(TextBlock(type="text", text=f"\n\n({system_note})"))
+            
             st.session_state.messages.append(
                 {
                     "role": ChatRole.USER,
-                    "content": [TextBlock(type="text", text=new_message)],
+                    "content": user_content,
                 }
             )
             _render_message(ChatRole.USER, new_message)

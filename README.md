@@ -1,24 +1,24 @@
 # VoiceOS Computer Use (for Mac)
 
-[VoiceOS Computer Use](https://github.com/VismayVora/VoiceOS) is a powerful tool that runs a Docker image with Ubuntu and controls it, or runs natively on macOS to provide direct system control through native macOS commands and utilities.
-
+[VoiceOS Computer Use](https://github.com/VismayVora/VoiceOS) is a powerful tool that runs natively on macOS to provide direct system control through native macOS commands and utilities, now with advanced Voice Control.
 
 ## Features
 
-- Native macOS GUI interaction (no Docker required)
-- Screen capture using native macOS commands
-- Keyboard and mouse control through cliclick
-- Multiple LLM provider support (Anthropic, Bedrock, Vertex)
-- Streamlit-based interface
-- Automatic screen resolution scaling
-- File system interaction and editing capabilities
+- **Voice Control**: "Always Listening" Wake Word ("VoiceOS") and high-quality Neural TTS.
+- **Headless Mode**: Run entirely from the terminal without a browser.
+- **Native macOS GUI interaction**: No Docker required.
+- **Screen capture**: Using native macOS commands.
+- **Keyboard and mouse control**: Through cliclick.
+- **Multiple LLM provider support**: Anthropic, Bedrock, Vertex.
+- **Streamlit-based interface**: For visual interaction.
 
 ## Prerequisites
 
 - macOS Sonoma 15.7 or later
 - Python 3.12+
 - Homebrew (for installing additional dependencies)
-- cliclick (`brew install cliclick`) - Required for mouse and keyboard control
+- `cliclick` (`brew install cliclick`) - Required for mouse/keyboard control
+- `portaudio` (`brew install portaudio`) - Required for microphone access
 
 ## Setup Instructions
 
@@ -49,7 +49,7 @@ chmod +x setup.sh
 pip install -r requirements.txt
 ```
 
-## Running the Demo
+## Running the App
 
 ### Set up your environment and API key
 
@@ -63,15 +63,25 @@ HEIGHT=600
 DISPLAY_NUM=1
 ```
 
-Set the screen dimensions (recommended: stay within XGA/WXGA resolution), and put in your key.
+### Option A: Visual Interface (Streamlit)
 
-2. Start the Streamlit app:
+Start the visual app:
 
 ```bash
-streamlit run streamlit.py
+streamlit run app.py
 ```
 
-The interface will be available at http://localhost:8501
+The interface will be available at http://localhost:8501. You can enable the "Wake Word" toggle in the sidebar to use voice commands.
+
+### Option B: Headless Mode (Terminal)
+
+Run the voice-only background service:
+
+```bash
+python run_headless.py
+```
+
+Say **"VoiceOS, [command]"** to interact.
 
 ## Screen Size Considerations
 
@@ -81,11 +91,4 @@ We recommend using one of these resolutions for optimal performance:
 -   WXGA: 1280x800 (16:10)
 -   FWXGA: 1366x768 (~16:9)
 
-Higher resolutions will be automatically scaled down to these targets to optimize model performance. You can set the resolution using environment variables:
-
-```bash
-export WIDTH=1024
-export HEIGHT=768
-streamlit run streamlit.py
-```
-
+Higher resolutions will be automatically scaled down to these targets to optimize model performance.

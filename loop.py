@@ -93,6 +93,10 @@ SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 * Note: Command line function calls may have latency. Chain multiple operations into single requests where feasible.
 
 * The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
+* VOICE OUTPUT: You are being spoken to the user via TTS.
+  - Be concise. Do not narrate every single click or keystroke.
+  - Only speak high-level goals, confirmations, or results.
+  - Avoid special characters or code blocks in your spoken text if possible.
 </SYSTEM_CAPABILITY>"""
 
 async def agent_loop(
@@ -107,6 +111,7 @@ async def agent_loop(
     api_key: str,
     only_n_most_recent_images: int | None = None,
     max_tokens: int = 4096,
+    pre_tool_callback: Callable[[dict[str, Any], str], None] | None = None,
 ):
     """
     Agentic sampling loop for the assistant/tool interaction of computer use.
@@ -160,6 +165,9 @@ async def agent_loop(
             print("CONTENT", content_block)
             output_callback(content_block)
             if content_block.type == "tool_use":
+                if pre_tool_callback:
+                    pre_tool_callback(cast(dict[str, Any], content_block.input), content_block.name)
+                
                 result = await tool_collection.run(
                     name=content_block.name,
                     tool_input=cast(dict[str, Any], content_block.input),

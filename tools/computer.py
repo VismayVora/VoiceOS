@@ -291,7 +291,7 @@ from .base import BaseAnthropicTool, ToolError, ToolResult
 from .run import run
 
 OUTPUT_DIR = "/tmp/outputs"
-TYPING_DELAY_MS = 12
+TYPING_DELAY_MS = 2
 TYPING_GROUP_SIZE = 50
 
 # UPDATED: Added new actions supported by Claude 4.5 (20250124)
@@ -304,6 +304,7 @@ Action = Literal[
     "right_click",
     "middle_click",
     "double_click",
+    "triple_click", # New
     "screenshot",
     "cursor_position",
     "wait",      # New
@@ -328,7 +329,7 @@ class ComputerTool(BaseAnthropicTool):
     height: int
     display_num: int | None
 
-    _screenshot_delay = 1.0
+    _screenshot_delay = 0.2
     _scaling_enabled = True
 
     @property
@@ -380,17 +381,34 @@ class ComputerTool(BaseAnthropicTool):
 
         # --- Handle Scroll ---
         if action == "scroll":
-            if coordinate is None:
-                # Scroll usually implies a direction or location, but often just scrolls current window
-                # Claude 2025 might send delta in 'text' or assume focused window
-                # For now, we use pyautogui for scroll as cliclick support is limited
-                try:
-                    # Scroll up/down based on context (defaulting to down/negative if generic)
-                    # Python pyautogui scroll: positive=up, negative=down
-                    pyautogui.scroll(-10) 
-                    return ToolResult(output="Scrolled down")
-                except Exception as e:
-                    return ToolResult(error=str(e))
+            # Move to location first if provided
+            if coordinate is not None:
+                x, y = self.scale_coordinates(coordinate[0], coordinate[1])
+                await self.shell(f"cliclick m:{x},{y}")
+            
+            # Determine scroll amount and direction
+            # Default to down if not specified
+            direction = kwargs.get('scroll_direction', 'down')
+            amount = kwargs.get('scroll_amount', 10) # Default amount
+            
+            if not isinstance(amount, int):
+                amount = 10
+                
+            # pyautogui scroll: positive is up, negative is down
+            clicks = amount if direction == 'up' else -amount
+            
+            # Scale for smoother/more noticeable scroll? 
+            # pyautogui.scroll unit varies by OS. On Mac it's often small.
+            # Let's multiply by 10 to make it significant.
+            clicks = clicks * 10
+            
+            try:
+                await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: pyautogui.scroll(clicks)
+                )
+                return ToolResult(output=f"Scrolled {direction} by {amount}")
+            except Exception as e:
+                return ToolResult(error=str(e))
 
         # --- Handle Key Presses (UPDATED to use cliclick instead of keyboard lib) ---
         if action in ("key", "type"):
@@ -398,43 +416,34 @@ class ComputerTool(BaseAnthropicTool):
                 raise ToolError(f"text is required for {action}")
 
             if action == "key":
-                # Convert "cmd+space" -> "kd:cmd kp:space ku:cmd" for cliclick
-                keys = text.split("+")
-                cmd_parts = []
-                modifiers = []
-                
-                # Map common key names to cliclick format
+                # Map common key names to pyautogui format
                 key_map = {
-                    "command": "cmd", "cmd": "cmd", "control": "ctrl", "ctrl": "ctrl",
+                    "command": "command", "cmd": "command", "control": "ctrl", "ctrl": "ctrl",
                     "shift": "shift", "alt": "alt", "option": "alt",
-                    "return": "return", "enter": "return", "escape": "esc", 
-                    "space": "space", "tab": "tab", "backspace": "delete",
-                    "up": "arrow-up", "down": "arrow-down", 
-                    "left": "arrow-left", "right": "arrow-right"
+                    "return": "enter", "enter": "enter", "escape": "esc", 
+                    "space": "space", "tab": "tab", "backspace": "backspace",
+                    "up": "up", "down": "down", 
+                    "left": "left", "right": "right"
                 }
 
-                # Separate modifiers and the final key
-                primary_key = keys[-1]
-                modifiers = keys[:-1]
-                
-                # Construct command string
-                cliclick_cmd = ""
-                
-                # Key Down for modifiers
-                for mod in modifiers:
-                    m = key_map.get(mod.lower(), mod.lower())
-                    cliclick_cmd += f"kd:{m} "
-                
-                # Key Press for primary key
-                pk = key_map.get(primary_key.lower(), primary_key.lower())
-                cliclick_cmd += f"kp:{pk} "
-                
-                # Key Up for modifiers (in reverse order)
-                for mod in reversed(modifiers):
-                    m = key_map.get(mod.lower(), mod.lower())
-                    cliclick_cmd += f"ku:{m} "
-
-                return await self.shell(f"cliclick {cliclick_cmd.strip()}")
+                try:
+                    if "+" in text:
+                        # Handle combinations like "cmd+space"
+                        keys = text.split("+")
+                        mapped_keys = [key_map.get(k.strip().lower(), k.strip().lower()) for k in keys]
+                        # pyautogui.hotkey handles multiple keys
+                        await asyncio.get_event_loop().run_in_executor(
+                            None, lambda: pyautogui.hotkey(*mapped_keys)
+                        )
+                    else:
+                        # Handle single keys
+                        mapped_key = key_map.get(text.lower(), text.lower())
+                        await asyncio.get_event_loop().run_in_executor(
+                            None, lambda: pyautogui.press(mapped_key)
+                        )
+                    return ToolResult(output=f"Pressed key: {text}")
+                except Exception as e:
+                    return ToolResult(error=str(e))
 
             elif action == "type":
                 # Typing text
@@ -446,7 +455,7 @@ class ComputerTool(BaseAnthropicTool):
                 return ToolResult(output=f"Typed: {text}", base64_image=screenshot_base64)
 
         # --- Handle Clicks and Cursor ---
-        if action in ("left_click", "right_click", "double_click", "middle_click", "screenshot", "cursor_position"):
+        if action in ("left_click", "right_click", "double_click", "middle_click", "triple_click", "screenshot", "cursor_position"):
             if action == "screenshot":
                 return await self.screenshot()
             
@@ -459,13 +468,22 @@ class ComputerTool(BaseAnthropicTool):
                 return result
                 
             else:
-                click_cmd = {
-                    "left_click": "c:.",
-                    "right_click": "rc:.",
-                    "middle_click": "mc:.",
-                    "double_click": "dc:.",
-                }[action]
-                return await self.shell(f"cliclick {click_cmd}")
+                # Check if coordinates are provided
+                if coordinate is not None:
+                    x, y = self.scale_coordinates(coordinate[0], coordinate[1])
+                    coords = f"{x},{y}"
+                else:
+                    coords = "."
+
+                click_cmd_map = {
+                    "left_click": "c",
+                    "right_click": "rc",
+                    "middle_click": "mc",
+                    "double_click": "dc",
+                    "triple_click": "tc", 
+                }
+                cmd_code = click_cmd_map[action]
+                return await self.shell(f"cliclick {cmd_code}:{coords}")
 
         raise ToolError(f"Invalid action: {action}")
 

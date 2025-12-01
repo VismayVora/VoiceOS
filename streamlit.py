@@ -25,8 +25,11 @@ from loop import (
     PROVIDER_TO_DEFAULT_MODEL_NAME,
     APIProvider,
     APIProvider,
+    APIProvider,
+    APIProvider,
     agent_loop,
 )
+import voice
 from tools import ToolResult
 from dotenv import load_dotenv
 
@@ -156,6 +159,26 @@ async def main():
                 await asyncio.sleep(1)
                 subprocess.run("./start_all.sh", shell=True)  # noqa: ASYNC221
 
+        st.divider()
+        st.divider()
+        st.header("🎤 Voice Control")
+        
+        available_voices = voice.get_available_voices()
+        # Default to Aria if available, else first one
+        default_voice = "en-US-AriaNeural"
+        index = available_voices.index(default_voice) if default_voice in available_voices else 0
+        selected_voice = st.selectbox("TTS Voice", options=available_voices, index=index)
+        st.session_state.selected_voice = selected_voice
+        
+        # Wake Word Toggle
+        wake_word_enabled = st.toggle("Enable Wake Word ('VoiceOS')", value=False)
+        
+        if not wake_word_enabled:
+            audio_value = st.audio_input("Record Command")
+        else:
+            audio_value = None
+            st.info("Listening for 'VoiceOS'...")
+
     if not st.session_state.auth_validated:
         if auth_error := validate_auth(
             st.session_state.provider, st.session_state.api_key
@@ -166,9 +189,40 @@ async def main():
             st.session_state.auth_validated = True
 
     chat, http_logs = st.tabs(["Chat", "HTTP Exchange Logs"])
-    new_message = st.chat_input(
+    
+    # 1. Handle Voice Input
+    voice_prompt = None
+    if audio_value:
+        with st.spinner("Listening..."):
+            voice_prompt = voice.transcribe(audio_value)
+    
+    # Wake Word Logic
+    if wake_word_enabled and not voice_prompt:
+        # This will block for a few seconds listening
+        # We use a placeholder to show status
+        status = st.empty()
+        status.text("👂 Listening for 'VoiceOS'...")
+        detected_command = voice.listen_for_wake_word(wake_word="voiceos")
+        if detected_command:
+            voice_prompt = detected_command
+            status.success(f"Heard: {voice_prompt}")
+        else:
+            status.text("💤 ...")
+            # Rerun to listen again immediately
+            st.rerun()
+            
+    # 2. Handle Text Input
+    text_prompt = st.chat_input(
         "Type a message to send to Claude to control the computer..."
     )
+
+    # 3. Determine which to use
+    # We prefer voice if it was just recorded
+    new_message = voice_prompt if voice_prompt else text_prompt
+    
+    # Optional: Display what was heard
+    if voice_prompt:
+        st.success(f"Heard: {voice_prompt}")
 
     with chat:
         # render past chats
@@ -351,6 +405,17 @@ def _render_message(
                 st.image(base64.b64decode(message.base64_image))
         elif isinstance(message, BetaTextBlock) or isinstance(message, TextBlock):
             st.write(message.text)
+            
+            if sender == ChatRole.BOT:
+                # Use session state to prevent repeating the same speech on re-renders
+                message_id = str(hash(message.text))
+                if message_id not in st.session_state.get("spoken_messages", set()):
+                    voice.speak(message.text, voice=st.session_state.get("selected_voice", "Samantha"))
+                    # Initialize set if not exists
+                    if "spoken_messages" not in st.session_state:
+                        st.session_state.spoken_messages = set()
+                    st.session_state.spoken_messages.add(message_id)
+
         elif isinstance(message, BetaToolUseBlock) or isinstance(message, ToolUseBlock):
             st.code(f"Tool Use: {message.name}\nInput: {message.input}")
         else:

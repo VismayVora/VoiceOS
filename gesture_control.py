@@ -142,8 +142,7 @@ class GestureController:
         
         def tool_cb(output, id):
             print(f"Tool output: {id}")
-            # Commentary for tools (optional, but requested)
-            # voice.speak("Working") 
+            # Commentary for tools (optional, but requested) 
 
         try:
             await agent_loop(

@@ -6,7 +6,6 @@ soundfile
 numpy
 torch
 edge-tts
-SpeechRecognition
 pyaudio
 emoji
 pyautogui

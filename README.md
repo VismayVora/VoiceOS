@@ -5,7 +5,7 @@
 ## Features
 
 - **Gesture Control**: Control the assistant with hand gestures via your webcam.
-- **Voice Control**: "Always Listening" Wake Word ("VoiceOS") and high-quality Neural TTS.
+- **Voice Control**: High-quality Neural TTS.
 - **Headless Mode**: Run entirely from the terminal without a browser.
 - **Native macOS GUI interaction**: No Docker required.
 - **Screen capture**: Using native macOS commands.

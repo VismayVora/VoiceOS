@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, cast
 
-from anthropic import Anthropic, AnthropicBedrock, AnthropicVertex, APIResponse
+from anthropic import AsyncAnthropic, AsyncAnthropicBedrock, AsyncAnthropicVertex, APIResponse
 from anthropic.types import (
     ToolResultBlockParam,
 )
@@ -130,17 +130,17 @@ async def agent_loop(
             filter_recent_images(messages, only_n_most_recent_images)
 
         if provider == APIProvider.ANTHROPIC:
-            client = Anthropic(api_key=api_key)
+            client = AsyncAnthropic(api_key=api_key)
         elif provider == APIProvider.VERTEX:
-            client = AnthropicVertex()
+            client = AsyncAnthropicVertex()
         elif provider == APIProvider.BEDROCK:
-            client = AnthropicBedrock()
+            client = AsyncAnthropicBedrock()
 
         # Call the API
         # we use raw_response to provide debug information to streamlit. Your
         # implementation may be able call the SDK directly with:
         # `response = client.messages.create(...)` instead.
-        raw_response = client.beta.messages.with_raw_response.create(
+        raw_response = await client.beta.messages.with_raw_response.create(
             max_tokens=max_tokens,
             messages=messages,
             model=model,

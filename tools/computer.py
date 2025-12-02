@@ -329,7 +329,8 @@ class ComputerTool(BaseAnthropicTool):
     height: int
     display_num: int | None
 
-    _screenshot_delay = 0.2
+    # Reduced delay for zippier performance
+    _screenshot_delay = 0.1 
     _scaling_enabled = True
 
     @property
@@ -406,7 +407,10 @@ class ComputerTool(BaseAnthropicTool):
                 await asyncio.get_event_loop().run_in_executor(
                     None, lambda: pyautogui.scroll(clicks)
                 )
-                return ToolResult(output=f"Scrolled {direction} by {amount}")
+                # Take screenshot after scroll
+                await asyncio.sleep(self._screenshot_delay)
+                screenshot_base64 = (await self.screenshot()).base64_image
+                return ToolResult(output=f"Scrolled {direction} by {amount}", base64_image=screenshot_base64)
             except Exception as e:
                 return ToolResult(error=str(e))
 
@@ -441,7 +445,12 @@ class ComputerTool(BaseAnthropicTool):
                         await asyncio.get_event_loop().run_in_executor(
                             None, lambda: pyautogui.press(mapped_key)
                         )
-                    return ToolResult(output=f"Pressed key: {text}")
+                    
+                    # Take screenshot after key press
+                    await asyncio.sleep(self._screenshot_delay)
+                    screenshot_base64 = (await self.screenshot()).base64_image
+                    return ToolResult(output=f"Pressed key: {text}", base64_image=screenshot_base64)
+                    
                 except Exception as e:
                     return ToolResult(error=str(e))
 
@@ -451,6 +460,8 @@ class ComputerTool(BaseAnthropicTool):
                     cmd = f"cliclick w:{TYPING_DELAY_MS} t:{shlex.quote(chunk)}"
                     await self.shell(cmd, take_screenshot=False)
                 
+                # Take screenshot after typing
+                await asyncio.sleep(self._screenshot_delay)
                 screenshot_base64 = (await self.screenshot()).base64_image
                 return ToolResult(output=f"Typed: {text}", base64_image=screenshot_base64)
 
@@ -483,7 +494,9 @@ class ComputerTool(BaseAnthropicTool):
                     "triple_click": "tc", 
                 }
                 cmd_code = click_cmd_map[action]
-                return await self.shell(f"cliclick {cmd_code}:{coords}")
+                
+                # Execute click AND take screenshot
+                return await self.shell(f"cliclick {cmd_code}:{coords}", take_screenshot=True)
 
         raise ToolError(f"Invalid action: {action}")
 

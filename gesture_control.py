@@ -39,6 +39,19 @@ class GestureController:
         self.last_activation_time = 0
         self.cooldown = 2.0 # Seconds between state changes
         
+        # History state
+        self.messages = []
+        
+        # Asyncio loop for the agent
+        self.loop = asyncio.new_event_loop()
+        self.agent_thread = threading.Thread(target=self._start_background_loop, daemon=True)
+        self.agent_thread.start()
+        self.current_task = None
+
+    def _start_background_loop(self):
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_forever()
+
     def is_open_palm(self, hand_landmarks):
         """
         Detects if the hand is an open palm (Start Gesture).
@@ -68,6 +81,29 @@ class GestureController:
         
         return curled_fingers >= 4
 
+    def is_victory_hand(self, hand_landmarks):
+        """
+        Detects if the hand is a Victory/Peace sign (Reset Gesture).
+        Criteria: Index and Middle extended, Ring and Pinky curled.
+        """
+        # Index (8) and Middle (12) should be extended (Tip < PIP)
+        index_extended = hand_landmarks.landmark[8].y < hand_landmarks.landmark[6].y
+        middle_extended = hand_landmarks.landmark[12].y < hand_landmarks.landmark[10].y
+        
+        # Ring (16) and Pinky (20) should be curled (Tip > PIP)
+        ring_curled = hand_landmarks.landmark[16].y > hand_landmarks.landmark[14].y
+        pinky_curled = hand_landmarks.landmark[20].y > hand_landmarks.landmark[18].y
+        
+        return index_extended and middle_extended and ring_curled and pinky_curled
+
+    def reset_history(self):
+        print("Resetting conversation history...")
+        voice.speak("History reset")
+        # Cancel any running task
+        if self.current_task and not self.current_task.done():
+            self.loop.call_soon_threadsafe(self.current_task.cancel)
+        self.messages = []
+
     def start_listening(self):
         print("Starting recording...")
         voice.speak("Listening")
@@ -95,57 +131,85 @@ class GestureController:
         self.is_listening = False
         # The thread will finish and call process_command
 
+    async def run_agent(self, user_content):
+        # Append new message to history
+        self.messages.append({"role": "user", "content": user_content})
+        
+        def status_cb(block):
+            if block.type == "text":
+                print(f"Agent: {block.text}")
+                voice.speak(block.text)
+        
+        def tool_cb(output, id):
+            print(f"Tool output: {id}")
+            # Commentary for tools (optional, but requested)
+            # voice.speak("Working") 
+
+        try:
+            await agent_loop(
+                model=MODEL,
+                provider=PROVIDER,
+                system_prompt_suffix=SYSTEM_PROMPT_SUFFIX,
+                messages=self.messages, # Pass the persistent list
+                output_callback=status_cb,
+                tool_output_callback=tool_cb,
+                api_response_callback=lambda *args: None,
+                api_key=API_KEY,
+                only_n_most_recent_images=3
+            )
+        except asyncio.CancelledError:
+            print("Agent task cancelled.")
+            voice.speak("Busy")
+            raise # Re-raise to ensure proper task cancellation handling
+        except Exception as e:
+            print(f"Agent error: {e}")
+            voice.speak("Sorry, something went wrong.")
+
     def process_command(self, text):
         if not text:
             return
 
-        print(f"Processing command: {text}")
+        # Clean up the text (remove "Listening" prefix if present)
+        # The system often hears its own TTS "Listening"
+        text_clean = text
+        if text_clean.lower().startswith("listening"):
+            text_clean = text_clean[9:].strip()
+        
+        # Remove leading punctuation
+        text_clean = text_clean.lstrip(".,!?- ")
+        
+        if not text_clean:
+            print("Ignored (Empty after cleanup)")
+            return
+
+        print(f"Processing command: {text_clean}")
         voice.speak("Processing")
         
         # Fast path
         from tools.local_actions import handle_local_action
-        system_note = handle_local_action(text)
+        system_note = handle_local_action(text_clean)
         
-        user_content = [{"type": "text", "text": text}]
         if system_note:
             print("Done (Fast Path)")
-            voice.speak("Done") # Commentary for fast path
-            user_content.append({"type": "text", "text": f"\n\n({system_note})"})
+            voice.speak("Done") 
+            return # EARLY EXIT: Skip the agent loop!
         
-        async def run_agent():
-            messages = [{"role": "user", "content": user_content}]
-            
-            def status_cb(block):
-                if block.type == "text":
-                    print(f"Agent: {block.text}")
-                    voice.speak(block.text)
-            
-            def tool_cb(output, id):
-                print(f"Tool output: {id}")
-                # Commentary for tools (optional, but requested)
-                # voice.speak("Working") 
-
-            try:
-                await agent_loop(
-                    model=MODEL,
-                    provider=PROVIDER,
-                    system_prompt_suffix=SYSTEM_PROMPT_SUFFIX,
-                    messages=messages,
-                    output_callback=status_cb,
-                    tool_output_callback=tool_cb,
-                    api_response_callback=lambda *args: None,
-                    api_key=API_KEY,
-                    only_n_most_recent_images=3
-                )
-            except Exception as e:
-                print(f"Agent error: {e}")
-                voice.speak("Sorry, something went wrong.")
-
-        asyncio.run(run_agent())
+        # Cancel any existing task
+        if self.current_task and not self.current_task.done():
+            print("Cancelling previous task...")
+            self.loop.call_soon_threadsafe(self.current_task.cancel)
+        
+        user_content = [{"type": "text", "text": text_clean}]
+        
+        # Schedule the new task
+        self.current_task = asyncio.run_coroutine_threadsafe(self.run_agent(user_content), self.loop)
 
     def start(self):
         print("Starting Gesture Control... (Press Ctrl+C to stop)")
-        print("Gestures: Open Palm = Start Listening | Closed Fist = Stop Listening")
+        print("Gestures:")
+        print("  ✋ Open Palm   = Start Listening")
+        print("  ✊ Closed Fist = Stop Listening")
+        print("  ✌️ Victory     = Reset History")
         
         cap = cv2.VideoCapture(0)
         
@@ -172,6 +236,14 @@ class GestureController:
                                 print("Gesture: Open Palm -> Start Listening")
                                 self.start_listening()
                                 self.last_activation_time = current_time
+                        
+                        # Waiting for Reset Gesture (Victory)
+                        elif self.is_victory_hand(hand_landmarks):
+                            if current_time - self.last_activation_time > self.cooldown:
+                                print("Gesture: Victory -> Reset History")
+                                self.reset_history()
+                                self.last_activation_time = current_time
+
                     else:
                         # Listening... Waiting for Stop Gesture (Closed Fist)
                         if self.is_closed_fist(hand_landmarks):

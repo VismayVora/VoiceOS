@@ -33,8 +33,6 @@ def get_available_voices():
 
 import re
 
-# ... (imports)
-
 # Global variable to track the current speech process
 current_process = None
 

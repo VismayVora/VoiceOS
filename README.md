@@ -1,16 +1,16 @@
 # VoiceOS Computer Use (for Mac)
 
-[VoiceOS Computer Use](https://github.com/VismayVora/VoiceOS) is a powerful tool that runs natively on macOS to provide direct system control through native macOS commands and utilities, now with advanced Voice Control.
+[VoiceOS Computer Use](https://github.com/VismayVora/VoiceOS) is a powerful tool that runs natively on macOS to provide direct system control through native macOS commands and utilities, now featuring advanced **Gesture Control**.
 
 ## Features
 
+- **Gesture Control**: Control the assistant with hand gestures via your webcam.
 - **Voice Control**: "Always Listening" Wake Word ("VoiceOS") and high-quality Neural TTS.
 - **Headless Mode**: Run entirely from the terminal without a browser.
 - **Native macOS GUI interaction**: No Docker required.
 - **Screen capture**: Using native macOS commands.
 - **Keyboard and mouse control**: Through cliclick.
 - **Multiple LLM provider support**: Anthropic, Bedrock, Vertex.
-- **Streamlit-based interface**: For visual interaction.
 
 ## Prerequisites
 
@@ -36,22 +36,13 @@ python3.12 -m venv venv
 source venv/bin/activate
 ```
 
-3. Run the setup script:
-
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-4. Install Python requirements:
+3. Install Python requirements:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Running the App
-
-### Set up your environment and API key
+## Configuration
 
 1. In a `.env` file add:
 
@@ -63,25 +54,28 @@ HEIGHT=600
 DISPLAY_NUM=1
 ```
 
-### Option A: Visual Interface (Streamlit)
+## Running the App
 
-Start the visual app:
-
-```bash
-streamlit run app.py
-```
-
-The interface will be available at http://localhost:8501. You can enable the "Wake Word" toggle in the sidebar to use voice commands.
-
-### Option B: Headless Mode (Terminal)
-
-Run the voice-only background service:
+Run the gesture-controlled assistant:
 
 ```bash
-python run_headless.py
+./run_gesture.sh
 ```
 
-Say **"VoiceOS, [command]"** to interact.
+### Gesture Controls
+
+The system uses your webcam to detect hand gestures:
+
+- **✋ Open Palm**: Start Listening (The assistant will start listening for your voice command)
+- **✊ Closed Fist**: Stop Listening (Finish your command)
+- **✌️ Victory (Peace Sign)**: Reset History (Clear the conversation context)
+
+### Voice Interaction
+
+Once listening (Open Palm), say your command. For example:
+- "Open Safari and search for weather in New York"
+- "Take a screenshot"
+- "Close the calculator"
 
 ## Screen Size Considerations
 

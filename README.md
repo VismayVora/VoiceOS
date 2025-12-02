@@ -59,7 +59,8 @@ DISPLAY_NUM=1
 Run the gesture-controlled assistant:
 
 ```bash
-./run_gesture.sh
+source venv/bin/activate
+python gesture_control.py
 ```
 
 ### Gesture Controls

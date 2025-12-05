@@ -87,3 +87,14 @@ We recommend using one of these resolutions for optimal performance:
 -   FWXGA: 1366x768 (~16:9)
 
 Higher resolutions will be automatically scaled down to these targets to optimize model performance.
+
+## Acknowledgements
+
+This project builds upon the excellent work in [mac_computer_use](https://github.com/deedy/mac_computer_use) by [deedy](https://github.com/deedy).
+
+While the core computer use logic is derived from the original repository, this repository introduces significant novel contributions:
+
+-   **Latest Anthropic Integration**: Updated to support the latest Anthropic models (Claude 3.5 Sonnet v2) and API structures (beta 2025-01-24).
+-   **Gesture Control**: A completely new camera-based hand gesture recognition system for hands-free interaction.
+-   **Voice Integration**: Integration of high-quality Neural TTS and Whisper-based STT for natural voice conversations.
+-   **Headless Operation**: Optimized for running without a visible UI overlay, suitable for background operation.

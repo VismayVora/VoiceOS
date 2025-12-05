@@ -33,7 +33,6 @@ def get_available_voices():
 
 import re
 
-# Global variable to track the current speech process
 current_process = None
 
 def stop_speaking():
@@ -64,13 +63,11 @@ def speak(text, voice="en-US-AriaNeural"):
     """
     global current_process
     
-    # Stop any previous speech
     stop_speaking()
     
     if not text:
         return
         
-    # Remove emojis
     clean_text = emoji.replace_emoji(text, replace='')
     
     # Remove markdown links [text](url) -> text

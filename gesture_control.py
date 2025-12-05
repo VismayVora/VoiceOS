@@ -7,13 +7,11 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# Add project root to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import voice
 from loop import agent_loop, APIProvider, PROVIDER_TO_DEFAULT_MODEL_NAME
 
-# Load env
 load_dotenv()
 
 API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
@@ -57,9 +55,6 @@ class GestureController:
         Detects if the hand is an open palm (Start Gesture).
         Criteria: All 4 fingers are extended.
         """
-        # Finger tip IDs: 8, 12, 16, 20
-        # Finger PIP IDs: 6, 10, 14, 18
-        
         extended_fingers = 0
         if hand_landmarks.landmark[8].y < hand_landmarks.landmark[6].y: extended_fingers += 1
         if hand_landmarks.landmark[12].y < hand_landmarks.landmark[10].y: extended_fingers += 1
@@ -227,7 +222,6 @@ class GestureController:
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
                     
-                    # State Machine Logic
                     if not self.is_listening:
                         # Waiting for Start Gesture (Open Palm)
                         if self.is_open_palm(hand_landmarks):

@@ -13,7 +13,6 @@ OUTPUT_DIR = "/tmp/outputs"
 TYPING_DELAY_MS = 2
 TYPING_GROUP_SIZE = 50
 
-# UPDATED: Added new actions supported by Claude 4.5 (20250124)
 Action = Literal[
     "key",
     "type",
@@ -23,11 +22,11 @@ Action = Literal[
     "right_click",
     "middle_click",
     "double_click",
-    "triple_click", # New
+    "triple_click",
     "screenshot",
     "cursor_position",
-    "wait",      # New
-    "scroll",    # New
+    "wait",
+    "scroll",
 ]
 
 class Resolution(TypedDict):
@@ -48,7 +47,6 @@ class ComputerTool(BaseAnthropicTool):
     height: int
     display_num: int | None
 
-    # Reduced delay for zippier performance
     _screenshot_delay = 0.1 
     _scaling_enabled = True
 
@@ -79,7 +77,6 @@ class ComputerTool(BaseAnthropicTool):
     ):
         print(f"Action: {action} {text} {coordinate}")
         
-        # --- Handle 'wait' ---
         if action == "wait":
             if duration is None:
                 # Default wait if not provided
@@ -87,7 +84,6 @@ class ComputerTool(BaseAnthropicTool):
             await asyncio.sleep(duration)
             return ToolResult(output=f"Waited {duration} seconds")
 
-        # --- Handle Mouse Movements ---
         if action in ("mouse_move", "left_click_drag"):
             if coordinate is None:
                 raise ToolError(f"coordinate is required for {action}")
@@ -99,7 +95,6 @@ class ComputerTool(BaseAnthropicTool):
             elif action == "left_click_drag":
                 return await self.shell(f"cliclick dd:{x},{y}")
 
-        # --- Handle Scroll ---
         if action == "scroll":
             # Move to location first if provided
             if coordinate is not None:
@@ -133,7 +128,6 @@ class ComputerTool(BaseAnthropicTool):
             except Exception as e:
                 return ToolResult(error=str(e))
 
-        # --- Handle Key Presses (UPDATED to use cliclick instead of keyboard lib) ---
         if action in ("key", "type"):
             if text is None:
                 raise ToolError(f"text is required for {action}")
@@ -184,7 +178,6 @@ class ComputerTool(BaseAnthropicTool):
                 screenshot_base64 = (await self.screenshot()).base64_image
                 return ToolResult(output=f"Typed: {text}", base64_image=screenshot_base64)
 
-        # --- Handle Clicks and Cursor ---
         if action in ("left_click", "right_click", "double_click", "middle_click", "triple_click", "screenshot", "cursor_position"):
             if action == "screenshot":
                 return await self.screenshot()
